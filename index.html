@@ -1,0 +1,2596 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>プリズナートレーニング テンポトレーナー</title>
+  <style>
+    /* =========================================================
+       1. デザイントークン & ベーススタイル（外部依存なし）
+       ========================================================= */
+    :root {
+      --bg-base: #090d16;
+      --bg-surface: #111827;
+      --bg-elevated: #1a2335;
+      --bg-inset: #0b1120;
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(148, 163, 184, 0.28);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --phase-idle: #38bdf8;
+      --phase-prep: #facc15;
+      --phase-down: #38bdf8;
+      --phase-bottom: #f59e0b;
+      --phase-up: #10b981;
+      --phase-top: #818cf8;
+      --phase-completed: #34d399;
+      --danger: #f43f5e;
+
+      --accent-current: #38bdf8;
+      --radius-lg: 20px;
+      --radius-md: 14px;
+      --radius-sm: 10px;
+      --shadow-card: 0 18px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      min-height: 100%;
+      background-color: var(--bg-base);
+      background-image:
+        radial-gradient(circle at 15% 0%, rgba(56, 189, 248, 0.08), transparent 45%),
+        radial-gradient(circle at 85% 100%, rgba(16, 185, 129, 0.06), transparent 45%),
+        linear-gradient(to right, rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(148, 163, 184, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+      color: var(--text-primary);
+      font-family: "Inter", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, -apple-system, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    button, input {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* =========================================================
+       2. レイアウトコンテナ
+       ========================================================= */
+    .app-shell {
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 16px 14px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .app-shell {
+        padding: 22px 24px 44px;
+        gap: 20px;
+      }
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (min-width: 900px) {
+      .main-grid {
+        grid-template-columns: 1.18fr 0.82fr;
+        gap: 20px;
+      }
+    }
+
+    /* =========================================================
+       3. ヘッダー & 音声トグルバー
+       ========================================================= */
+    .app-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: linear-gradient(135deg, #1e293b, #0f172a);
+      border: 1px solid var(--border-strong);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--phase-down);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+      line-height: 1.25;
+    }
+
+    .brand-sub {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.04em;
+    }
+
+    .audio-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .audio-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 11px;
+      border-radius: var(--radius-sm);
+      font-size: 0.76rem;
+      font-weight: 700;
+      border: 1px solid var(--border-subtle);
+      background: rgba(17, 24, 39, 0.85);
+      color: var(--text-muted);
+      transition: all 0.16s ease;
+    }
+
+    .audio-btn:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .audio-btn.active-beep {
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(56, 189, 248, 0.14);
+      color: #7dd3fc;
+    }
+
+    .audio-btn.active-tick {
+      border-color: rgba(245, 158, 11, 0.5);
+      background: rgba(245, 158, 11, 0.14);
+      color: #fcd34d;
+    }
+
+    .audio-btn.active-voice {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.14);
+      color: #6ee7b7;
+    }
+
+    .audio-btn.active-mute {
+      border-color: rgba(244, 63, 94, 0.6);
+      background: rgba(244, 63, 94, 0.18);
+      color: #fda4af;
+    }
+
+    .audio-btn svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    /* =========================================================
+       4. カード共通
+       ========================================================= */
+    .card {
+      background: rgba(17, 24, 39, 0.92);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+    }
+
+    /* =========================================================
+       5. メインステージカード
+       ========================================================= */
+    .phase-accent-bar {
+      height: 5px;
+      width: 100%;
+      background: var(--accent-current);
+      transition: background-color 0.25s ease;
+    }
+
+    .stage-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .stage-body {
+        padding: 20px;
+        gap: 16px;
+      }
+    }
+
+    /* 上部ツールバー（モード切替 + テンポバッジ） */
+    .stage-top-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .mode-tabs {
+      display: inline-flex;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+      width: 100%;
+    }
+
+    @media (min-width: 520px) {
+      .mode-tabs {
+        width: auto;
+      }
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 7px 12px;
+      border-radius: 9px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      transition: all 0.16s ease;
+      white-space: nowrap;
+    }
+
+    .mode-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .mode-tab.is-active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .tempo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 10px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+    }
+
+    .c-down { color: var(--phase-down); }
+    .c-bottom { color: var(--phase-bottom); }
+    .c-up { color: var(--phase-up); }
+    .c-top { color: var(--phase-top); }
+    .c-sep { color: #475569; }
+
+    /* ステータス行（レップ数 / 経過時間） */
+    .stats-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-box {
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .stat-value {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .stat-sub {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-left: 3px;
+    }
+
+    /* SVG キャンバス */
+    .canvas-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      max-height: 280px;
+      background: radial-gradient(circle at 50% 45%, #111c33 0%, #070b14 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .anim-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      user-select: none;
+    }
+
+    .is-hidden {
+      display: none !important;
+    }
+
+    /* ボトムキープ時の緊張パルス */
+    @keyframes holdPulse {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+      50% {
+        transform: scale(1.24);
+        opacity: 0.12;
+      }
+    }
+
+    .hold-pulse-ring {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: holdPulse 0.75s ease-in-out infinite;
+    }
+
+    /* 準備・完了オーバーレイ */
+    .stage-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 11, 20, 0.78);
+      backdrop-filter: blur(3px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16px;
+      z-index: 5;
+    }
+
+    .prep-kicker {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: #fde047;
+      letter-spacing: 0.12em;
+      margin-bottom: 4px;
+    }
+
+    .prep-count {
+      font-size: 4.5rem;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--phase-prep);
+      text-shadow: 0 0 28px rgba(250, 204, 21, 0.55);
+    }
+
+    .complete-badge {
+      width: 52px;
+      height: 52px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.18);
+      border: 2px solid rgba(52, 211, 153, 0.6);
+      color: var(--phase-completed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+
+    .complete-title {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: var(--phase-completed);
+    }
+
+    .complete-desc {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* フェーズ表示 + カウントダウン */
+    .phase-readout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+    }
+
+    .phase-label-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .phase-label {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: var(--accent-current);
+      line-height: 1.2;
+      transition: color 0.2s ease;
+    }
+
+    .phase-sub {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+    }
+
+    .countdown-box {
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .countdown-value {
+      font-size: 2.2rem;
+      font-weight: 900;
+      line-height: 1;
+      color: var(--text-primary);
+    }
+
+    .countdown-unit {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-left: 2px;
+    }
+
+    /* プログレスバー（現在フェーズ & 1レップ全体） */
+    .progress-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .linear-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      overflow: hidden;
+    }
+
+    .linear-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: var(--accent-current);
+      transition: background-color 0.2s ease;
+    }
+
+    .rep-segments {
+      display: flex;
+      gap: 4px;
+      height: 6px;
+      width: 100%;
+    }
+
+    .rep-seg-wrap {
+      height: 100%;
+      border-radius: 999px;
+      background: #1e293b;
+      overflow: hidden;
+    }
+
+    .rep-seg-fill {
+      height: 100%;
+      width: 0%;
+    }
+
+    .bg-down { background: var(--phase-down); }
+    .bg-bottom { background: var(--phase-bottom); }
+    .bg-up { background: var(--phase-up); }
+    .bg-top { background: var(--phase-top); }
+
+    /* 操作ボタン */
+    .controls-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 18px;
+      border-radius: var(--radius-md);
+      font-size: 1rem;
+      font-weight: 800;
+      color: #ffffff;
+      background: linear-gradient(135deg, #0ea5e9, #2563eb);
+      box-shadow: 0 10px 22px rgba(14, 165, 233, 0.28);
+      transition: transform 0.12s ease, filter 0.16s ease;
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.08);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary.is-running {
+      background: linear-gradient(135deg, #f59e0b, #ea580c);
+      box-shadow: 0 10px 22px rgba(245, 158, 11, 0.28);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 14px;
+      border-radius: var(--radius-md);
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      transition: transform 0.12s ease, background-color 0.16s ease;
+    }
+
+    .btn-secondary:hover {
+      background: #243047;
+    }
+
+    .btn-secondary:active {
+      transform: scale(0.98);
+    }
+
+    .shortcut-hint {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 5px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-strong);
+      color: var(--text-secondary);
+      font-size: 0.68rem;
+      font-weight: 700;
+      margin: 0 2px;
+    }
+
+    /* =========================================================
+       6. 設定パネルカード
+       ========================================================= */
+    .settings-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .settings-body {
+        padding: 20px;
+      }
+    }
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--text-secondary);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .save-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #34d399;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      pointer-events: none;
+    }
+
+    .save-badge.is-visible {
+      opacity: 1;
+    }
+
+    /* プリセットボタン */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .preset-btn {
+      text-align: left;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.16s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-elevated);
+    }
+
+    .preset-btn.is-active {
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.55);
+    }
+
+    .preset-name {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+
+    .preset-tempo {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .preset-btn.is-active .preset-tempo {
+      color: #7dd3fc;
+    }
+
+    /* スライダーリスト */
+    .divider {
+      height: 1px;
+      background: var(--border-subtle);
+      width: 100%;
+    }
+
+    .sliders-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .slider-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--text-primary);
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .val-badge {
+      padding: 2px 8px;
+      border-radius: 7px;
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      font-size: 0.78rem;
+      font-weight: 800;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 7px;
+      border-radius: 999px;
+      background: #1e293b;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #38bdf8;
+      border: 2px solid #0b1120;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+      cursor: pointer;
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+      border-radius: 999px;
+      background: #38bdf8;
+      border: 2px solid #0b1120;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+      cursor: pointer;
+    }
+
+    /* 目標レップ数 & 準備カウント */
+    .control-card {
+      background: var(--bg-inset);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .control-row-between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .stepper {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .step-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      font-size: 1.1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color 0.14s ease, transform 0.1s ease;
+    }
+
+    .step-btn:hover:not(:disabled) {
+      background: #27344d;
+    }
+
+    .step-btn:active:not(:disabled) {
+      transform: scale(0.94);
+    }
+
+    .step-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .stepper-val {
+      min-width: 58px;
+      text-align: center;
+      font-size: 0.92rem;
+      font-weight: 800;
+    }
+
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #38bdf8;
+      cursor: pointer;
+    }
+
+    .prep-group {
+      display: inline-flex;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .prep-btn {
+      padding: 6px 11px;
+      border-radius: 7px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      transition: all 0.15s ease;
+    }
+
+    .prep-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .prep-btn.is-active {
+      background: rgba(250, 204, 21, 0.2);
+      color: #fde047;
+    }
+
+    /* 設定リセット & 通知 */
+    .settings-footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .storage-note {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .storage-note.is-warn {
+      color: #fbbf24;
+    }
+
+    .btn-ghost {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      background: var(--bg-inset);
+      border: 1px solid var(--border-strong);
+      transition: all 0.16s ease;
+    }
+
+    .btn-ghost:hover {
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+    }
+
+    .toast-box {
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: rgba(56, 189, 248, 0.14);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #bae6fd;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .app-footer {
+      text-align: center;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      padding-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- ヘッダー -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6.5 6.5h11"></path>
+            <path d="M6.5 17.5h11"></path>
+            <path d="M4 10v4"></path>
+            <path d="M20 10v4"></path>
+            <path d="M8 6.5v11"></path>
+            <path d="M16 6.5v11"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">プリズナートレーニング テンポトレーナー</h1>
+          <div class="brand-sub">CONVICT CONDITIONING TEMPO GUIDE</div>
+        </div>
+      </div>
+
+      <!-- 音声クイックトグル -->
+      <div class="audio-bar" role="group" aria-label="音声設定">
+        <button id="btn-beep" type="button" class="audio-btn active-beep" title="フェーズ切替ビープ音のON/OFF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          </svg>
+          <span>ビープ音</span>
+        </button>
+
+        <button id="btn-tick" type="button" class="audio-btn active-tick" title="1秒ごとのリズム音のON/OFF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <polyline points="12 7 12 12 15 15"></polyline>
+          </svg>
+          <span>リズム音</span>
+        </button>
+
+        <button id="btn-voice" type="button" class="audio-btn active-voice" title="日本語音声ガイドのON/OFF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+          </svg>
+          <span>音声ガイド</span>
+        </button>
+
+        <button id="btn-mute" type="button" class="audio-btn" title="全体のミュート切替">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+            <line x1="23" y1="9" x2="17" y2="15"></line>
+            <line x1="17" y1="9" x2="23" y2="15"></line>
+          </svg>
+          <span>ミュート</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- メインコンテンツ（デスクトップ2カラム / モバイル1カラム） -->
+    <div class="main-grid">
+
+      <!-- 左：メイン表示＆アニメーションカード -->
+      <main class="card">
+        <div id="phase-accent-bar" class="phase-accent-bar"></div>
+        <div class="stage-body">
+
+          <!-- モード切替タブ & テンポ表示 -->
+          <div class="stage-top-row">
+            <div class="mode-tabs" role="tablist" aria-label="アニメーションモード">
+              <button type="button" class="mode-tab is-active" data-mode="pushup" role="tab" aria-selected="true">プッシュアップ</button>
+              <button type="button" class="mode-tab" data-mode="squat" role="tab" aria-selected="false">スクワット</button>
+              <button type="button" class="mode-tab" data-mode="gauge" role="tab" aria-selected="false">汎用ゲージ</button>
+            </div>
+            <div id="tempo-pill" class="tempo-pill tabular-nums" aria-label="現在のテンポ">
+              <span class="c-down">2</span><span class="c-sep">-</span>
+              <span class="c-bottom">1</span><span class="c-sep">-</span>
+              <span class="c-up">2</span><span class="c-sep">-</span>
+              <span class="c-top">0</span>
+            </div>
+          </div>
+
+          <!-- レップ数 & 総経過時間 -->
+          <div class="stats-row">
+            <div class="stat-box">
+              <span class="stat-label">レップ数</span>
+              <div class="stat-value tabular-nums">
+                <span id="display-rep">0</span><span id="display-rep-target" class="stat-sub">/ 10 回</span>
+              </div>
+            </div>
+            <div class="stat-box">
+              <span class="stat-label">総経過時間</span>
+              <div id="display-elapsed" class="stat-value tabular-nums">00:00</div>
+            </div>
+          </div>
+
+          <!-- SVG アニメーション表示エリア -->
+          <div class="canvas-frame">
+            <!-- 1. プッシュアップ SVG -->
+            <svg id="svg-pushup" class="anim-svg" viewBox="0 0 360 225" aria-label="プッシュアップの動作ガイド">
+              <defs>
+                <filter id="glow-pu" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
+                  <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                </filter>
+              </defs>
+              <!-- TOP / BTM ガイドライン -->
+              <line x1="36" y1="88" x2="316" y2="88" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4"></line>
+              <text x="320" y="91" fill="#475569" font-size="9" font-weight="800">TOP</text>
+              <line x1="36" y1="158" x2="316" y2="158" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4"></line>
+              <text x="320" y="161" fill="#475569" font-size="9" font-weight="800">BTM</text>
+              <!-- 床 -->
+              <line x1="24" y1="190" x2="336" y2="190" stroke="#334155" stroke-width="3" stroke-linecap="round"></line>
+              <!-- ボトムキープ時の緊張オーラ -->
+              <g id="pu-aura" style="opacity: 0; transition: opacity 0.15s ease;">
+                <circle id="pu-aura-ring" cx="255" cy="158" r="24" fill="none" stroke="#f59e0b" stroke-width="2.5" class="hold-pulse-ring"></circle>
+              </g>
+              <!-- 影 -->
+              <ellipse id="pu-shadow" cx="170" cy="192" rx="102" ry="5" fill="#000000" opacity="0.4"></ellipse>
+              <!-- 人体モデル -->
+              <g id="pu-figure" stroke="#38bdf8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-pu)">
+                <line id="pu-leg" x1="65" y1="186" x2="158" y2="137" stroke-width="10"></line>
+                <line id="pu-torso" x1="158" y1="137" x2="250" y2="88" stroke-width="12"></line>
+                <line id="pu-arm-upper-back" x1="246" y1="90" x2="225" y2="140" stroke-width="7" opacity="0.35"></line>
+                <line id="pu-arm-lower-back" x1="225" y1="140" x2="270" y2="186" stroke-width="6.5" opacity="0.35"></line>
+                <line id="pu-arm-upper" x1="250" y1="88" x2="230" y2="140" stroke-width="8.5"></line>
+                <line id="pu-arm-lower" x1="230" y1="140" x2="275" y2="186" stroke-width="7.5"></line>
+                <circle id="pu-head" cx="279" cy="73" r="14" fill="#0b1120" stroke-width="4"></circle>
+              </g>
+              <!-- 関節ノード -->
+              <g fill="#f8fafc">
+                <circle cx="65" cy="186" r="4"></circle>
+                <circle id="pu-hip" cx="158" cy="137" r="4"></circle>
+                <circle id="pu-shoulder" cx="250" cy="88" r="5"></circle>
+                <circle id="pu-elbow" cx="230" cy="140" r="4"></circle>
+                <circle cx="275" cy="186" r="4"></circle>
+              </g>
+            </svg>
+
+            <!-- 2. スクワット SVG -->
+            <svg id="svg-squat" class="anim-svg is-hidden" viewBox="0 0 360 225" aria-label="スクワットの動作ガイド">
+              <defs>
+                <filter id="glow-sq" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="3.5" result="blur"></feGaussianBlur>
+                  <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                </filter>
+              </defs>
+              <line x1="56" y1="98" x2="300" y2="98" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4"></line>
+              <text x="304" y="101" fill="#475569" font-size="9" font-weight="800">TOP</text>
+              <line x1="56" y1="154" x2="300" y2="154" stroke="#1e293b" stroke-width="1" stroke-dasharray="4 4"></line>
+              <text x="304" y="157" fill="#475569" font-size="9" font-weight="800">BTM</text>
+              <line x1="40" y1="196" x2="320" y2="196" stroke="#334155" stroke-width="3" stroke-linecap="round"></line>
+              <g id="sq-aura" style="opacity: 0; transition: opacity 0.15s ease;">
+                <circle id="sq-aura-ring" cx="138" cy="154" r="26" fill="none" stroke="#f59e0b" stroke-width="2.5" class="hold-pulse-ring"></circle>
+              </g>
+              <ellipse id="sq-shadow" cx="180" cy="198" rx="34" ry="5" fill="#000000" opacity="0.42"></ellipse>
+              <g id="sq-figure" stroke="#38bdf8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-sq)">
+                <line x1="168" y1="193" x2="198" y2="193" stroke-width="7"></line>
+                <line id="sq-shin" x1="180" y1="192" x2="182" y2="144" stroke-width="9.5"></line>
+                <line id="sq-thigh" x1="182" y1="144" x2="178" y2="98" stroke-width="11"></line>
+                <line id="sq-torso" x1="178" y1="98" x2="180" y2="48" stroke-width="12"></line>
+                <line id="sq-arm-upper" x1="180" y1="48" x2="178" y2="80" stroke-width="8"></line>
+                <line id="sq-arm-lower" x1="178" y1="80" x2="182" y2="110" stroke-width="7"></line>
+                <circle id="sq-head" cx="182" cy="26" r="14" fill="#0b1120" stroke-width="4"></circle>
+              </g>
+              <g fill="#f8fafc">
+                <circle cx="180" cy="192" r="4"></circle>
+                <circle id="sq-knee" cx="182" cy="144" r="4.5"></circle>
+                <circle id="sq-hip" cx="178" cy="98" r="5"></circle>
+                <circle id="sq-shoulder" cx="180" cy="48" r="5"></circle>
+                <circle id="sq-elbow" cx="178" cy="80" r="3.5"></circle>
+                <circle id="sq-hand" cx="182" cy="110" r="3.5"></circle>
+              </g>
+            </svg>
+
+            <!-- 3. 汎用ゲージ SVG -->
+            <svg id="svg-gauge" class="anim-svg is-hidden" viewBox="0 0 360 225" aria-label="汎用モーションゲージ">
+              <defs>
+                <filter id="glow-gg" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="4" result="blur"></feGaussianBlur>
+                  <feComposite in="SourceGraphic" in2="blur" operator="over"></feComposite>
+                </filter>
+              </defs>
+              <!-- 左：大型フェーズリング -->
+              <g transform="translate(142, 112)">
+                <circle cx="0" cy="0" r="74" fill="none" stroke="#1e293b" stroke-width="11"></circle>
+                <circle id="gg-aura" cx="0" cy="0" r="83" fill="none" stroke="#f59e0b" stroke-width="3" class="hold-pulse-ring" style="opacity: 0;"></circle>
+                <circle id="gg-ring" cx="0" cy="0" r="74" fill="none" stroke="#38bdf8" stroke-width="11"
+                  stroke-linecap="round" stroke-dasharray="464.96" stroke-dashoffset="464.96"
+                  transform="rotate(-90)" filter="url(#glow-gg)"></circle>
+                <g id="gg-arrow-group" fill="#38bdf8">
+                  <path id="gg-arrow" d="M0 -14 A14 14 0 1 0 0 14 A14 14 0 1 0 0 -14 Z"></path>
+                </g>
+                <text id="gg-depth-text" x="0" y="52" text-anchor="middle" fill="#94a3b8" font-size="12" font-weight="800">TOP 0%</text>
+              </g>
+              <!-- 右：垂直ポジションゲージ -->
+              <g transform="translate(274, 26)">
+                <text x="16" y="-6" text-anchor="middle" fill="#64748b" font-size="9" font-weight="800">TOP</text>
+                <rect x="4" y="4" width="24" height="164" rx="12" fill="#0b1120" stroke="#1e293b" stroke-width="2"></rect>
+                <rect x="6" y="144" width="20" height="22" rx="8" fill="#f59e0b" opacity="0.2"></rect>
+                <rect id="gg-puck" x="6" y="8" width="20" height="24" rx="10" fill="#38bdf8" filter="url(#glow-gg)"></rect>
+                <text x="16" y="185" text-anchor="middle" fill="#64748b" font-size="9" font-weight="800">BOTTOM</text>
+              </g>
+            </svg>
+
+            <!-- 準備カウントダウンオーバーレイ -->
+            <div id="overlay-prep" class="stage-overlay is-hidden">
+              <div class="prep-kicker">構えてください</div>
+              <div id="prep-count-num" class="prep-count tabular-nums">3</div>
+            </div>
+
+            <!-- セット完了オーバーレイ -->
+            <div id="overlay-complete" class="stage-overlay is-hidden">
+              <div class="complete-badge">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </div>
+              <div class="complete-title">完了！</div>
+              <div id="complete-desc" class="complete-desc">10レップ達成しました。お疲れ様でした！</div>
+            </div>
+          </div>
+
+          <!-- フェーズ名 & 残り秒数 -->
+          <div class="phase-readout">
+            <div class="phase-label-group">
+              <div id="display-phase" class="phase-label">待機中</div>
+              <div id="display-phase-sub" class="phase-sub">READY</div>
+            </div>
+            <div class="countdown-box tabular-nums">
+              <span id="display-countdown" class="countdown-value">0.0</span><span class="countdown-unit">s</span>
+            </div>
+          </div>
+
+          <!-- プログレスバー -->
+          <div class="progress-stack">
+            <div class="linear-track" aria-label="現在フェーズの進行度">
+              <div id="phase-progress-fill" class="linear-fill"></div>
+            </div>
+            <div class="rep-segments" aria-label="1レップの構成">
+              <div id="seg-down-wrap" class="rep-seg-wrap" style="flex: 2"><div id="seg-down" class="rep-seg-fill bg-down"></div></div>
+              <div id="seg-bottom-wrap" class="rep-seg-wrap" style="flex: 1"><div id="seg-bottom" class="rep-seg-fill bg-bottom"></div></div>
+              <div id="seg-up-wrap" class="rep-seg-wrap" style="flex: 2"><div id="seg-up" class="rep-seg-fill bg-up"></div></div>
+              <div id="seg-top-wrap" class="rep-seg-wrap is-hidden" style="flex: 0"><div id="seg-top" class="rep-seg-fill bg-top"></div></div>
+            </div>
+          </div>
+
+          <!-- メイン操作ボタン -->
+          <div class="controls-row">
+            <button id="btn-start-pause" type="button" class="btn-primary">
+              <svg id="icon-play" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>
+              <svg id="icon-pause" class="is-hidden" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+              <span id="text-start-pause">スタート</span>
+            </button>
+
+            <button id="btn-reset" type="button" class="btn-secondary">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              <span>リセット</span>
+            </button>
+          </div>
+
+          <div class="shortcut-hint">
+            キーボード操作：<span class="kbd">Space</span> 開始 / 一時停止 ・ <span class="kbd">R</span> リセット
+          </div>
+        </div>
+      </main>
+
+      <!-- 右：設定パネルカード -->
+      <aside class="card">
+        <div class="settings-body">
+          <!-- プリセット -->
+          <div>
+            <div class="section-head">
+              <h2 class="section-title">テンポプリセット</h2>
+              <span id="save-badge" class="save-badge">✓ 設定を自動保存しました</span>
+            </div>
+            <div class="preset-grid">
+              <button type="button" class="preset-btn is-active" data-preset="2,1,2,0">
+                <div class="preset-name">標準</div>
+                <div class="preset-tempo tabular-nums">2 - 1 - 2 - 0</div>
+              </button>
+              <button type="button" class="preset-btn" data-preset="4,2,4,0">
+                <div class="preset-name">スロー</div>
+                <div class="preset-tempo tabular-nums">4 - 2 - 4 - 0</div>
+              </button>
+              <button type="button" class="preset-btn" data-preset="2,1,1,0">
+                <div class="preset-name">爆発的</div>
+                <div class="preset-tempo tabular-nums">2 - 1 - 1 - 0</div>
+              </button>
+              <button type="button" class="preset-btn" data-preset="3,2,3,1">
+                <div class="preset-name">高負荷</div>
+                <div class="preset-tempo tabular-nums">3 - 2 - 3 - 1</div>
+              </button>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- 各フェーズ秒数スライダー -->
+          <div class="sliders-grid">
+            <div class="slider-row">
+              <div class="slider-header">
+                <span class="slider-label"><span class="dot bg-down"></span>下降（下ろす）</span>
+                <span id="val-down" class="val-badge c-down tabular-nums">2.0 秒</span>
+              </div>
+              <input id="slider-down" type="range" min="0.5" max="10" step="0.5" value="2" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-header">
+                <span class="slider-label"><span class="dot bg-bottom"></span>ボトムキープ（止める）</span>
+                <span id="val-bottom" class="val-badge c-bottom tabular-nums">1.0 秒</span>
+              </div>
+              <input id="slider-bottom" type="range" min="0" max="10" step="0.5" value="1" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-header">
+                <span class="slider-label"><span class="dot bg-up"></span>上昇（上げる）</span>
+                <span id="val-up" class="val-badge c-up tabular-nums">2.0 秒</span>
+              </div>
+              <input id="slider-up" type="range" min="0.5" max="10" step="0.5" value="2" />
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-header">
+                <span class="slider-label"><span class="dot bg-top"></span>トップキープ</span>
+                <span id="val-top" class="val-badge c-top tabular-nums">0.0 秒</span>
+              </div>
+              <input id="slider-top" type="range" min="0" max="10" step="0.5" value="0" />
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- 目標レップ数 -->
+          <div class="control-card">
+            <div class="control-row-between">
+              <span class="slider-label" style="font-size: 0.82rem; font-weight: 700;">目標レップ数</span>
+              <label class="checkbox-label">
+                <input id="check-unlimited" type="checkbox" />
+                <span>無制限</span>
+              </label>
+            </div>
+            <div class="control-row-between">
+              <input id="slider-reps" type="range" min="1" max="100" step="1" value="10" style="flex: 1;" />
+              <div class="stepper">
+                <button id="btn-rep-minus" type="button" class="step-btn" aria-label="目標レップ数を1減らす">−</button>
+                <span id="val-reps" class="stepper-val tabular-nums">10 回</span>
+                <button id="btn-rep-plus" type="button" class="step-btn" aria-label="目標レップ数を1増やす">＋</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 準備カウントダウン -->
+          <div class="control-card">
+            <div class="control-row-between">
+              <span class="slider-label" style="font-size: 0.82rem; font-weight: 700;">準備カウントダウン</span>
+              <div class="prep-group" role="group" aria-label="準備秒数">
+                <button type="button" class="prep-btn" data-prep="0">なし</button>
+                <button type="button" class="prep-btn is-active" data-prep="3">3秒</button>
+                <button type="button" class="prep-btn" data-prep="5">5秒</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ストレージ状態 & 初期化ボタン -->
+          <div class="settings-footer">
+            <span id="storage-note" class="storage-note">設定は自動保存されます</span>
+            <button id="btn-reset-settings" type="button" class="btn-ghost">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                <path d="M3 3v5h5"></path>
+              </svg>
+              <span>設定を初期値に戻す</span>
+            </button>
+          </div>
+
+          <div id="toast-box" class="toast-box is-hidden" role="status" aria-live="polite"></div>
+        </div>
+      </aside>
+    </div>
+
+    <footer class="app-footer">
+      反動を使わず、正確なフォームとテンポで1レップずつ完遂しましょう。
+    </footer>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      'use strict';
+
+      // =========================================================
+      // 1. 安全な localStorage ラッパー（サンドボックス/制限環境でもクラッシュしない）
+      // =========================================================
+      const STORAGE_KEY = 'prisoner_tempo_trainer_v2';
+
+      const SafeStorage = (() => {
+        let available = false;
+        try {
+          if (typeof window !== 'undefined' && window.localStorage) {
+            const testKey = '__tempo_storage_test__';
+            window.localStorage.setItem(testKey, '1');
+            window.localStorage.removeItem(testKey);
+            available = true;
+          }
+        } catch (e) {
+          available = false;
+        }
+
+        return {
+          isAvailable() {
+            return available;
+          },
+          get(key) {
+            if (!available) return null;
+            try {
+              return window.localStorage.getItem(key);
+            } catch (e) {
+              return null;
+            }
+          },
+          set(key, value) {
+            if (!available) return false;
+            try {
+              window.localStorage.setItem(key, value);
+              return true;
+            } catch (e) {
+              return false;
+            }
+          },
+          remove(key) {
+            if (!available) return false;
+            try {
+              window.localStorage.removeItem(key);
+              return true;
+            } catch (e) {
+              return false;
+            }
+          },
+        };
+      })();
+
+      // =========================================================
+      // 2. デフォルト設定 & アプリ状態
+      // =========================================================
+      const DEFAULTS = {
+        mode: 'pushup', // 'pushup' | 'squat' | 'gauge'
+        down: 2.0,
+        bottom: 1.0,
+        up: 2.0,
+        top: 0.0,
+        targetReps: 10,
+        unlimited: false,
+        prepSec: 3,
+        audio: {
+          beep: true,
+          tick: true,
+          voice: true,
+          muted: false,
+        },
+      };
+
+      const state = {
+        status: 'idle', // 'idle' | 'prep' | 'running' | 'paused' | 'completed'
+        config: {
+          mode: DEFAULTS.mode,
+          down: DEFAULTS.down,
+          bottom: DEFAULTS.bottom,
+          up: DEFAULTS.up,
+          top: DEFAULTS.top,
+          targetReps: DEFAULTS.targetReps,
+          unlimited: DEFAULTS.unlimited,
+          prepSec: DEFAULTS.prepSec,
+          audio: { ...DEFAULTS.audio },
+        },
+        // 実行時トラッキング
+        phases: [],
+        phaseIndex: 0,
+        phaseElapsedMs: 0,
+        totalElapsedMs: 0,
+        prepRemainingMs: 0,
+        currentRep: 0,
+        currentDepth: 0, // 0 = トップ, 1 = ボトム
+        lastFrameTs: 0,
+        lastWholeSec: -1,
+        rafId: null,
+      };
+
+      const PHASE_META = {
+        idle: {
+          label: '待機中',
+          sub: 'READY',
+          color: '#38bdf8',
+        },
+        prep: {
+          label: '準備',
+          sub: 'GET READY',
+          color: '#facc15',
+        },
+        down: {
+          label: '下げて (下降)',
+          sub: 'ECCENTRIC',
+          color: '#38bdf8',
+          voice: '下げて',
+        },
+        bottom: {
+          label: '止めて (ボトム)',
+          sub: 'ISOMETRIC HOLD',
+          color: '#f59e0b',
+          voice: '止めて',
+        },
+        up: {
+          label: '上げて (上昇)',
+          sub: 'CONCENTRIC',
+          color: '#10b981',
+          voice: '上げて',
+        },
+        top: {
+          label: 'トップ',
+          sub: 'TOP HOLD',
+          color: '#818cf8',
+          voice: 'トップ',
+        },
+        completed: {
+          label: '完了！',
+          sub: 'SET COMPLETE',
+          color: '#34d399',
+        },
+      };
+
+      // =========================================================
+      // 3. DOM 要素の取得（すべて HTML と厳密一致）
+      // =========================================================
+      const $ = (id) => document.getElementById(id);
+
+      const el = {
+        phaseAccentBar: $('phase-accent-bar'),
+        tempoPill: $('tempo-pill'),
+        displayRep: $('display-rep'),
+        displayRepTarget: $('display-rep-target'),
+        displayElapsed: $('display-elapsed'),
+        displayPhase: $('display-phase'),
+        displayPhaseSub: $('display-phase-sub'),
+        displayCountdown: $('display-countdown'),
+        phaseProgressFill: $('phase-progress-fill'),
+
+        segDownWrap: $('seg-down-wrap'),
+        segBottomWrap: $('seg-bottom-wrap'),
+        segUpWrap: $('seg-up-wrap'),
+        segTopWrap: $('seg-top-wrap'),
+        segDown: $('seg-down'),
+        segBottom: $('seg-bottom'),
+        segUp: $('seg-up'),
+        segTop: $('seg-top'),
+
+        overlayPrep: $('overlay-prep'),
+        prepCountNum: $('prep-count-num'),
+        overlayComplete: $('overlay-complete'),
+        completeDesc: $('complete-desc'),
+
+        btnStartPause: $('btn-start-pause'),
+        textStartPause: $('text-start-pause'),
+        iconPlay: $('icon-play'),
+        iconPause: $('icon-pause'),
+        btnReset: $('btn-reset'),
+
+        btnBeep: $('btn-beep'),
+        btnTick: $('btn-tick'),
+        btnVoice: $('btn-voice'),
+        btnMute: $('btn-mute'),
+
+        sliderDown: $('slider-down'),
+        sliderBottom: $('slider-bottom'),
+        sliderUp: $('slider-up'),
+        sliderTop: $('slider-top'),
+        valDown: $('val-down'),
+        valBottom: $('val-bottom'),
+        valUp: $('val-up'),
+        valTop: $('val-top'),
+
+        checkUnlimited: $('check-unlimited'),
+        sliderReps: $('slider-reps'),
+        btnRepMinus: $('btn-rep-minus'),
+        btnRepPlus: $('btn-rep-plus'),
+        valReps: $('val-reps'),
+
+        saveBadge: $('save-badge'),
+        storageNote: $('storage-note'),
+        btnResetSettings: $('btn-reset-settings'),
+        toastBox: $('toast-box'),
+
+        // SVG コンテナ
+        svgPushup: $('svg-pushup'),
+        svgSquat: $('svg-squat'),
+        svgGauge: $('svg-gauge'),
+
+        // プッシュアップパーツ
+        puFigure: $('pu-figure'),
+        puLeg: $('pu-leg'),
+        puTorso: $('pu-torso'),
+        puArmUpper: $('pu-arm-upper'),
+        puArmLower: $('pu-arm-lower'),
+        puArmUpperBack: $('pu-arm-upper-back'),
+        puArmLowerBack: $('pu-arm-lower-back'),
+        puHead: $('pu-head'),
+        puHip: $('pu-hip'),
+        puShoulder: $('pu-shoulder'),
+        puElbow: $('pu-elbow'),
+        puShadow: $('pu-shadow'),
+        puAura: $('pu-aura'),
+        puAuraRing: $('pu-aura-ring'),
+
+        // スクワットパーツ
+        sqFigure: $('sq-figure'),
+        sqShin: $('sq-shin'),
+        sqThigh: $('sq-thigh'),
+        sqTorso: $('sq-torso'),
+        sqArmUpper: $('sq-arm-upper'),
+        sqArmLower: $('sq-arm-lower'),
+        sqHead: $('sq-head'),
+        sqKnee: $('sq-knee'),
+        sqHip: $('sq-hip'),
+        sqShoulder: $('sq-shoulder'),
+        sqElbow: $('sq-elbow'),
+        sqHand: $('sq-hand'),
+        sqShadow: $('sq-shadow'),
+        sqAura: $('sq-aura'),
+        sqAuraRing: $('sq-aura-ring'),
+
+        // 汎用ゲージパーツ
+        ggRing: $('gg-ring'),
+        ggAura: $('gg-aura'),
+        ggArrowGroup: $('gg-arrow-group'),
+        ggArrow: $('gg-arrow'),
+        ggDepthText: $('gg-depth-text'),
+        ggPuck: $('gg-puck'),
+      };
+
+      const modeTabs = Array.from(document.querySelectorAll('.mode-tab'));
+      const presetBtns = Array.from(document.querySelectorAll('.preset-btn'));
+      const prepBtns = Array.from(document.querySelectorAll('.prep-btn'));
+
+      // =========================================================
+      // 4. 安全な Web Audio API & Web Speech API エンジン
+      // =========================================================
+      let audioCtx = null;
+
+      function ensureAudioContext() {
+        try {
+          if (!audioCtx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (Ctx) audioCtx = new Ctx();
+          }
+          if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+        } catch (e) {
+          // 音声非対応環境でもタイマーを止めない
+        }
+      }
+
+      function playGlideTone(startFreq, endFreq, duration = 0.16, type = 'sine', volume = 0.2) {
+        if (state.config.audio.muted || !state.config.audio.beep) return;
+        ensureAudioContext();
+        if (!audioCtx) return;
+
+        try {
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = type;
+          osc.frequency.setValueAtTime(startFreq, now);
+          if (endFreq !== startFreq) {
+            osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+          }
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(now);
+          osc.stop(now + duration + 0.02);
+        } catch (e) {
+          // 無視
+        }
+      }
+
+      function playPhaseTone(phaseType) {
+        if (phaseType === 'down') {
+          // 下降：穏やかに下がるトーン
+          playGlideTone(587.33, 440.0, 0.18, 'sine', 0.22);
+        } else if (phaseType === 'bottom') {
+          // ボトムキープ：安定した集中トーン
+          playGlideTone(523.25, 523.25, 0.16, 'triangle', 0.22);
+        } else if (phaseType === 'up') {
+          // 上昇：力強く上がるトーン
+          playGlideTone(523.25, 783.99, 0.18, 'sine', 0.24);
+        } else if (phaseType === 'top') {
+          // トップキープ：クリアな高音
+          playGlideTone(659.25, 659.25, 0.14, 'sine', 0.18);
+        } else if (phaseType === 'prep') {
+          playGlideTone(440.0, 440.0, 0.1, 'sine', 0.18);
+        }
+      }
+
+      function playTickSound() {
+        if (state.config.audio.muted || !state.config.audio.tick) return;
+        ensureAudioContext();
+        if (!audioCtx) return;
+
+        try {
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(360, now);
+
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.11, now + 0.008);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+
+          osc.start(now);
+          osc.stop(now + 0.065);
+        } catch (e) {
+          // 無視
+        }
+      }
+
+      function playCompletionFanfare() {
+        if (state.config.audio.muted || !state.config.audio.beep) return;
+        ensureAudioContext();
+        if (!audioCtx) return;
+
+        const notes = [523.25, 659.25, 783.99, 1046.5];
+        notes.forEach((freq, idx) => {
+          try {
+            const start = audioCtx.currentTime + idx * 0.1;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, start);
+
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.22, start + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.28);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(start);
+            osc.stop(start + 0.3);
+          } catch (e) {
+            // 無視
+          }
+        });
+      }
+
+      function speakJa(text) {
+        if (state.config.audio.muted || !state.config.audio.voice || !text) return;
+        try {
+          if (typeof window === 'undefined' || !('speechSynthesis' in window) || !window.speechSynthesis) {
+            return;
+          }
+          window.speechSynthesis.cancel();
+          const uttr = new SpeechSynthesisUtterance(text);
+          uttr.lang = 'ja-JP';
+          uttr.rate = 1.15;
+          uttr.pitch = 1.0;
+          uttr.volume = 0.95;
+          window.speechSynthesis.speak(uttr);
+        } catch (e) {
+          // 音声合成エラーは無視
+        }
+      }
+
+      function cancelSpeech() {
+        try {
+          if (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+        } catch (e) {
+          // 無視
+        }
+      }
+
+      // =========================================================
+      // 5. 設定の読み込み・保存・初期化
+      // =========================================================
+      function clampStep(value, min, max, step, fallback) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return fallback;
+        const clamped = Math.min(max, Math.max(min, n));
+        return Math.round(clamped / step) * step;
+      }
+
+      let saveBadgeTimer = null;
+      function flashSaveBadge() {
+        if (!SafeStorage.isAvailable()) return;
+        el.saveBadge.classList.add('is-visible');
+        clearTimeout(saveBadgeTimer);
+        saveBadgeTimer = setTimeout(() => {
+          el.saveBadge.classList.remove('is-visible');
+        }, 1800);
+      }
+
+      let toastTimer = null;
+      function showToast(msg) {
+        el.toastBox.textContent = msg;
+        el.toastBox.classList.remove('is-hidden');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          el.toastBox.classList.add('is-hidden');
+        }, 2600);
+      }
+
+      function saveConfig(silent = false) {
+        if (!SafeStorage.isAvailable()) return;
+        try {
+          const ok = SafeStorage.set(STORAGE_KEY, JSON.stringify(state.config));
+          if (ok && !silent) flashSaveBadge();
+        } catch (e) {
+          // 無視
+        }
+      }
+
+      function loadConfig() {
+        if (!SafeStorage.isAvailable()) {
+          el.storageNote.textContent = '※この環境では設定の保存が無効です（メモリ上で動作中）';
+          el.storageNote.classList.add('is-warn');
+          return;
+        }
+        const raw = SafeStorage.get(STORAGE_KEY);
+        if (!raw) return;
+
+        try {
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== 'object') return;
+
+          if (['pushup', 'squat', 'gauge'].includes(parsed.mode)) {
+            state.config.mode = parsed.mode;
+          }
+          state.config.down = clampStep(parsed.down, 0.5, 10, 0.5, DEFAULTS.down);
+          state.config.bottom = clampStep(parsed.bottom, 0, 10, 0.5, DEFAULTS.bottom);
+          state.config.up = clampStep(parsed.up, 0.5, 10, 0.5, DEFAULTS.up);
+          state.config.top = clampStep(parsed.top, 0, 10, 0.5, DEFAULTS.top);
+          state.config.targetReps = clampStep(parsed.targetReps, 1, 100, 1, DEFAULTS.targetReps);
+          if (typeof parsed.unlimited === 'boolean') {
+            state.config.unlimited = parsed.unlimited;
+          }
+          if ([0, 3, 5].includes(Number(parsed.prepSec))) {
+            state.config.prepSec = Number(parsed.prepSec);
+          }
+          if (parsed.audio && typeof parsed.audio === 'object') {
+            if (typeof parsed.audio.beep === 'boolean') state.config.audio.beep = parsed.audio.beep;
+            if (typeof parsed.audio.tick === 'boolean') state.config.audio.tick = parsed.audio.tick;
+            if (typeof parsed.audio.voice === 'boolean') state.config.audio.voice = parsed.audio.voice;
+            if (typeof parsed.audio.muted === 'boolean') state.config.audio.muted = parsed.audio.muted;
+          }
+        } catch (e) {
+          // 破損データ時はデフォルト維持
+        }
+      }
+
+      function resetConfigToDefaults() {
+        SafeStorage.remove(STORAGE_KEY);
+        state.config = {
+          mode: DEFAULTS.mode,
+          down: DEFAULTS.down,
+          bottom: DEFAULTS.bottom,
+          up: DEFAULTS.up,
+          top: DEFAULTS.top,
+          targetReps: DEFAULTS.targetReps,
+          unlimited: DEFAULTS.unlimited,
+          prepSec: DEFAULTS.prepSec,
+          audio: { ...DEFAULTS.audio },
+        };
+        resetWorkout();
+        syncAllSettingsUI();
+        showToast('設定を初期値に戻しました');
+      }
+
+      // =========================================================
+      // 6. アニメーション描画（完全同期・滑らかな補間）
+      // =========================================================
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function easeInOutSine(t) {
+        return -(Math.cos(Math.PI * t) - 1) / 2;
+      }
+
+      function renderPushup(depth, color, isHold) {
+        const footX = 65;
+        const footY = 186;
+        const handX = 275;
+        const handY = 186;
+        const bodyLen = 210;
+
+        const angleDeg = lerp(-28, -7, depth);
+        const rad = (angleDeg * Math.PI) / 180;
+
+        const shoulderX = footX + bodyLen * Math.cos(rad);
+        const shoulderY = footY + bodyLen * Math.sin(rad);
+        const hipX = lerp(footX, shoulderX, 0.5);
+        const hipY = lerp(footY, shoulderY, 0.5);
+        const headX = shoulderX + 31 * Math.cos(rad);
+        const headY = shoulderY + 31 * Math.sin(rad) - 3;
+
+        // 2リンク逆運動学（肩→肘→手）
+        const L1 = 56;
+        const L2 = 56;
+        const dx = handX - shoulderX;
+        const dy = handY - shoulderY;
+        const dist = Math.max(1, Math.min(Math.hypot(dx, dy), L1 + L2 - 0.5));
+        const a = (L1 * L1 - L2 * L2 + dist * dist) / (2 * dist);
+        const h = Math.sqrt(Math.max(0, L1 * L1 - a * a));
+        const midX = shoulderX + (a / dist) * dx;
+        const midY = shoulderY + (a / dist) * dy;
+        const elbowX = midX - (h / dist) * dy;
+        const elbowY = midY + (h / dist) * dx;
+
+        el.puFigure.setAttribute('stroke', color);
+        el.puLeg.setAttribute('x1', footX);
+        el.puLeg.setAttribute('y1', footY);
+        el.puLeg.setAttribute('x2', hipX);
+        el.puLeg.setAttribute('y2', hipY);
+
+        el.puTorso.setAttribute('x1', hipX);
+        el.puTorso.setAttribute('y1', hipY);
+        el.puTorso.setAttribute('x2', shoulderX);
+        el.puTorso.setAttribute('y2', shoulderY);
+
+        el.puArmUpper.setAttribute('x1', shoulderX);
+        el.puArmUpper.setAttribute('y1', shoulderY);
+        el.puArmUpper.setAttribute('x2', elbowX);
+        el.puArmUpper.setAttribute('y2', elbowY);
+
+        el.puArmLower.setAttribute('x1', elbowX);
+        el.puArmLower.setAttribute('y1', elbowY);
+        el.puArmLower.setAttribute('x2', handX);
+        el.puArmLower.setAttribute('y2', handY);
+
+        el.puArmUpperBack.setAttribute('x1', shoulderX - 5);
+        el.puArmUpperBack.setAttribute('y1', shoulderY + 2);
+        el.puArmUpperBack.setAttribute('x2', elbowX - 6);
+        el.puArmUpperBack.setAttribute('y2', elbowY - 2);
+
+        el.puArmLowerBack.setAttribute('x1', elbowX - 6);
+        el.puArmLowerBack.setAttribute('y1', elbowY - 2);
+        el.puArmLowerBack.setAttribute('x2', handX - 5);
+        el.puArmLowerBack.setAttribute('y2', handY);
+
+        el.puHead.setAttribute('cx', headX);
+        el.puHead.setAttribute('cy', headY);
+        el.puHip.setAttribute('cx', hipX);
+        el.puHip.setAttribute('cy', hipY);
+        el.puShoulder.setAttribute('cx', shoulderX);
+        el.puShoulder.setAttribute('cy', shoulderY);
+        el.puElbow.setAttribute('cx', elbowX);
+        el.puElbow.setAttribute('cy', elbowY);
+
+        el.puShadow.setAttribute('rx', lerp(98, 120, depth));
+        el.puShadow.setAttribute('opacity', lerp(0.32, 0.65, depth));
+
+        el.puAuraRing.setAttribute('cx', shoulderX - 8);
+        el.puAuraRing.setAttribute('cy', shoulderY + 4);
+        el.puAura.style.opacity = isHold ? '1' : '0';
+      }
+
+      function renderSquat(depth, color, isHold) {
+        const ankleX = 180;
+        const ankleY = 192;
+        const kneeX = lerp(182, 224, depth);
+        const kneeY = lerp(144, 148, depth);
+        const hipX = lerp(178, 134, depth);
+        const hipY = lerp(98, 154, depth);
+        const shoulderX = lerp(180, 182, depth);
+        const shoulderY = lerp(48, 102, depth);
+        const headX = lerp(182, 196, depth);
+        const headY = lerp(26, 80, depth);
+        const elbowX = lerp(178, 220, depth);
+        const elbowY = lerp(80, 102, depth);
+        const handX = lerp(182, 256, depth);
+        const handY = lerp(110, 98, depth);
+
+        el.sqFigure.setAttribute('stroke', color);
+        el.sqShin.setAttribute('x1', ankleX);
+        el.sqShin.setAttribute('y1', ankleY);
+        el.sqShin.setAttribute('x2', kneeX);
+        el.sqShin.setAttribute('y2', kneeY);
+
+        el.sqThigh.setAttribute('x1', kneeX);
+        el.sqThigh.setAttribute('y1', kneeY);
+        el.sqThigh.setAttribute('x2', hipX);
+        el.sqThigh.setAttribute('y2', hipY);
+
+        el.sqTorso.setAttribute('x1', hipX);
+        el.sqTorso.setAttribute('y1', hipY);
+        el.sqTorso.setAttribute('x2', shoulderX);
+        el.sqTorso.setAttribute('y2', shoulderY);
+
+        el.sqArmUpper.setAttribute('x1', shoulderX);
+        el.sqArmUpper.setAttribute('y1', shoulderY);
+        el.sqArmUpper.setAttribute('x2', elbowX);
+        el.sqArmUpper.setAttribute('y2', elbowY);
+
+        el.sqArmLower.setAttribute('x1', elbowX);
+        el.sqArmLower.setAttribute('y1', elbowY);
+        el.sqArmLower.setAttribute('x2', handX);
+        el.sqArmLower.setAttribute('y2', handY);
+
+        el.sqHead.setAttribute('cx', headX);
+        el.sqHead.setAttribute('cy', headY);
+        el.sqKnee.setAttribute('cx', kneeX);
+        el.sqKnee.setAttribute('cy', kneeY);
+        el.sqHip.setAttribute('cx', hipX);
+        el.sqHip.setAttribute('cy', hipY);
+        el.sqShoulder.setAttribute('cx', shoulderX);
+        el.sqShoulder.setAttribute('cy', shoulderY);
+        el.sqElbow.setAttribute('cx', elbowX);
+        el.sqElbow.setAttribute('cy', elbowY);
+        el.sqHand.setAttribute('cx', handX);
+        el.sqHand.setAttribute('cy', handY);
+
+        el.sqShadow.setAttribute('rx', lerp(30, 56, depth));
+        el.sqShadow.setAttribute('opacity', lerp(0.35, 0.62, depth));
+
+        el.sqAuraRing.setAttribute('cx', hipX);
+        el.sqAuraRing.setAttribute('cy', hipY);
+        el.sqAura.style.opacity = isHold ? '1' : '0';
+      }
+
+      function renderGauge(depth, phaseProgress, phaseType, color, isHold) {
+        const circumference = 464.96;
+        const ringProg = state.status === 'idle' ? 0 : Math.min(1, Math.max(0, phaseProgress));
+        el.ggRing.setAttribute('stroke', color);
+        el.ggRing.setAttribute('stroke-dashoffset', (circumference * (1 - ringProg)).toFixed(2));
+
+        el.ggArrowGroup.setAttribute('fill', color);
+        if (phaseType === 'down') {
+          el.ggArrow.setAttribute('d', 'M0 24 L16 4 L7 4 L7 -24 L-7 -24 L-7 4 L-16 4 Z');
+        } else if (phaseType === 'up') {
+          el.ggArrow.setAttribute('d', 'M0 -24 L16 -4 L7 -4 L7 24 L-7 24 L-7 -4 L-16 -4 Z');
+        } else if (phaseType === 'bottom' || phaseType === 'top') {
+          el.ggArrow.setAttribute('d', 'M-14 -16 H-4 V16 H-14 Z M4 -16 H14 V16 H4 Z');
+        } else {
+          el.ggArrow.setAttribute('d', 'M0 -14 A14 14 0 1 0 0 14 A14 14 0 1 0 0 -14 Z');
+        }
+
+        const pct = Math.round(depth * 100);
+        el.ggDepthText.textContent = pct === 0 ? 'TOP 0%' : pct === 100 ? 'BTM 100%' : `DEPTH ${pct}%`;
+
+        el.ggPuck.setAttribute('y', lerp(8, 140, depth));
+        el.ggPuck.setAttribute('fill', color);
+        el.ggAura.style.opacity = isHold ? '1' : '0';
+      }
+
+      function renderVisuals(depth, phaseProgress, phaseType) {
+        const meta = PHASE_META[phaseType] || PHASE_META.idle;
+        const isHold = phaseType === 'bottom' && state.status === 'running';
+        const safeDepth = Number.isFinite(depth) ? Math.min(1, Math.max(0, depth)) : 0;
+        const safeProg = Number.isFinite(phaseProgress) ? Math.min(1, Math.max(0, phaseProgress)) : 0;
+
+        if (state.config.mode === 'pushup') {
+          renderPushup(safeDepth, meta.color, isHold);
+        } else if (state.config.mode === 'squat') {
+          renderSquat(safeDepth, meta.color, isHold);
+        } else {
+          renderGauge(safeDepth, safeProg, phaseType, meta.color, isHold);
+        }
+      }
+
+      // =========================================================
+      // 7. UI 同期ヘルパー
+      // =========================================================
+      function formatElapsed(ms) {
+        const sec = Math.max(0, Math.floor(ms / 1000));
+        const m = String(Math.floor(sec / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        return `${m}:${s}`;
+      }
+
+      function applyPhaseTheme(phaseType) {
+        const meta = PHASE_META[phaseType] || PHASE_META.idle;
+        document.documentElement.style.setProperty('--accent-current', meta.color);
+        el.displayPhase.textContent = meta.label;
+        el.displayPhaseSub.textContent = meta.sub;
+      }
+
+      function updateProgressUI(phaseType, progress) {
+        const safeProg = Number.isFinite(progress) ? Math.min(1, Math.max(0, progress)) : 0;
+        el.phaseProgressFill.style.width = `${(safeProg * 100).toFixed(1)}%`;
+
+        const order = ['down', 'bottom', 'up', 'top'];
+        const segEls = {
+          down: el.segDown,
+          bottom: el.segBottom,
+          up: el.segUp,
+          top: el.segTop,
+        };
+
+        if (state.status === 'idle' || state.status === 'prep') {
+          order.forEach((k) => { segEls[k].style.width = '0%'; });
+          return;
+        }
+        if (state.status === 'completed') {
+          order.forEach((k) => { segEls[k].style.width = '100%'; });
+          return;
+        }
+
+        const idx = order.indexOf(phaseType);
+        order.forEach((k, i) => {
+          if (i < idx) segEls[k].style.width = '100%';
+          else if (i === idx) segEls[k].style.width = `${(safeProg * 100).toFixed(1)}%`;
+          else segEls[k].style.width = '0%';
+        });
+      }
+
+      function syncModeUI() {
+        const mode = state.config.mode;
+        modeTabs.forEach((tab) => {
+          const active = tab.dataset.mode === mode;
+          tab.classList.toggle('is-active', active);
+          tab.setAttribute('aria-selected', String(active));
+        });
+        el.svgPushup.classList.toggle('is-hidden', mode !== 'pushup');
+        el.svgSquat.classList.toggle('is-hidden', mode !== 'squat');
+        el.svgGauge.classList.toggle('is-hidden', mode !== 'gauge');
+      }
+
+      function syncAudioUI() {
+        const { beep, tick, voice, muted } = state.config.audio;
+        el.btnBeep.classList.toggle('active-beep', !muted && beep);
+        el.btnTick.classList.toggle('active-tick', !muted && tick);
+        el.btnVoice.classList.toggle('active-voice', !muted && voice);
+        el.btnMute.classList.toggle('active-mute', muted);
+      }
+
+      function syncPresetHighlight() {
+        const c = state.config;
+        const key = `${c.down},${c.bottom},${c.up},${c.top}`;
+        presetBtns.forEach((btn) => {
+          btn.classList.toggle('is-active', btn.dataset.preset === key);
+        });
+      }
+
+      function syncPrepUI() {
+        prepBtns.forEach((btn) => {
+          btn.classList.toggle('is-active', Number(btn.dataset.prep) === state.config.prepSec);
+        });
+      }
+
+      function syncRepDisplay() {
+        el.displayRep.textContent = String(state.currentRep);
+        if (state.config.unlimited) {
+          el.displayRepTarget.textContent = '回 (無制限)';
+        } else {
+          el.displayRepTarget.textContent = `/ ${state.config.targetReps} 回`;
+        }
+      }
+
+      function syncSettingsValuesUI() {
+        const c = state.config;
+        el.sliderDown.value = String(c.down);
+        el.sliderBottom.value = String(c.bottom);
+        el.sliderUp.value = String(c.up);
+        el.sliderTop.value = String(c.top);
+
+        el.valDown.textContent = `${c.down.toFixed(1)} 秒`;
+        el.valBottom.textContent = `${c.bottom.toFixed(1)} 秒`;
+        el.valUp.textContent = `${c.up.toFixed(1)} 秒`;
+        el.valTop.textContent = `${c.top.toFixed(1)} 秒`;
+
+        el.tempoPill.innerHTML =
+          `<span class="c-down">${c.down}</span><span class="c-sep">-</span>` +
+          `<span class="c-bottom">${c.bottom}</span><span class="c-sep">-</span>` +
+          `<span class="c-up">${c.up}</span><span class="c-sep">-</span>` +
+          `<span class="c-top">${c.top}</span>`;
+
+        // 1レップセグメント比率
+        const segs = [
+          { wrap: el.segDownWrap, val: c.down },
+          { wrap: el.segBottomWrap, val: c.bottom },
+          { wrap: el.segUpWrap, val: c.up },
+          { wrap: el.segTopWrap, val: c.top },
+        ];
+        segs.forEach(({ wrap, val }) => {
+          if (val > 0) {
+            wrap.classList.remove('is-hidden');
+            wrap.style.flex = String(val);
+          } else {
+            wrap.classList.add('is-hidden');
+            wrap.style.flex = '0';
+          }
+        });
+
+        // 目標レップ数コントロール
+        el.checkUnlimited.checked = c.unlimited;
+        el.sliderReps.value = String(c.targetReps);
+        el.sliderReps.disabled = c.unlimited;
+        el.btnRepMinus.disabled = c.unlimited || c.targetReps <= 1;
+        el.btnRepPlus.disabled = c.unlimited || c.targetReps >= 100;
+        el.valReps.textContent = c.unlimited ? '無制限' : `${c.targetReps} 回`;
+
+        syncRepDisplay();
+      }
+
+      function syncControlButtons() {
+        const active = state.status === 'running' || state.status === 'prep';
+        el.btnStartPause.classList.toggle('is-running', active);
+        el.iconPlay.classList.toggle('is-hidden', active);
+        el.iconPause.classList.toggle('is-hidden', !active);
+        el.textStartPause.textContent = active
+          ? '一時停止'
+          : state.status === 'paused'
+          ? '再開'
+          : 'スタート';
+      }
+
+      function syncAllSettingsUI() {
+        syncModeUI();
+        syncAudioUI();
+        syncSettingsValuesUI();
+        syncPresetHighlight();
+        syncPrepUI();
+        syncControlButtons();
+      }
+
+      // =========================================================
+      // 8. タイマーエンジン（ゼロ秒フェーズを確実にスキップ）
+      // =========================================================
+      function buildActivePhases() {
+        const c = state.config;
+        const list = [];
+        if (c.down > 0) list.push({ type: 'down', durationMs: c.down * 1000 });
+        if (c.bottom > 0) list.push({ type: 'bottom', durationMs: c.bottom * 1000 });
+        if (c.up > 0) list.push({ type: 'up', durationMs: c.up * 1000 });
+        if (c.top > 0) list.push({ type: 'top', durationMs: c.top * 1000 });
+        return list;
+      }
+
+      function enterPhase(phaseObj, completedRepCount = null) {
+        const meta = PHASE_META[phaseObj.type];
+        applyPhaseTheme(phaseObj.type);
+        state.phaseElapsedMs = 0;
+        state.lastWholeSec = 0;
+
+        playPhaseTone(phaseObj.type);
+        if (completedRepCount !== null) {
+          speakJa(`${completedRepCount}回、${meta.voice}`);
+        } else {
+          speakJa(meta.voice);
+        }
+      }
+
+      function startWorkout() {
+        ensureAudioContext();
+
+        const phases = buildActivePhases();
+        if (phases.length === 0) {
+          showToast('フェーズの秒数を0.5秒以上に設定してください');
+          return;
+        }
+
+        // 一時停止からの再開
+        if (state.status === 'paused') {
+          state.status = state.prepRemainingMs > 0 ? 'prep' : 'running';
+          state.lastFrameTs = performance.now();
+          syncControlButtons();
+          state.rafId = requestAnimationFrame(tick);
+          return;
+        }
+
+        // 新規スタート
+        state.phases = phases;
+        state.phaseIndex = 0;
+        state.phaseElapsedMs = 0;
+        state.totalElapsedMs = 0;
+        state.currentRep = 0;
+        state.currentDepth = 0;
+
+        el.overlayComplete.classList.add('is-hidden');
+        el.displayElapsed.textContent = '00:00';
+        syncRepDisplay();
+
+        if (state.config.prepSec > 0) {
+          state.status = 'prep';
+          state.prepRemainingMs = state.config.prepSec * 1000;
+          state.lastWholeSec = state.config.prepSec;
+          el.prepCountNum.textContent = String(state.config.prepSec);
+          el.overlayPrep.classList.remove('is-hidden');
+          applyPhaseTheme('prep');
+          updateProgressUI('prep', 0);
+          renderVisuals(0, 0, 'prep');
+          playPhaseTone('prep');
+          speakJa(`準備、${state.config.prepSec}`);
+        } else {
+          state.status = 'running';
+          state.prepRemainingMs = 0;
+          el.overlayPrep.classList.add('is-hidden');
+          enterPhase(state.phases[0]);
+        }
+
+        syncControlButtons();
+        state.lastFrameTs = performance.now();
+        state.rafId = requestAnimationFrame(tick);
+      }
+
+      function pauseWorkout() {
+        if (state.status !== 'running' && state.status !== 'prep') return;
+        state.status = 'paused';
+        if (state.rafId !== null) {
+          cancelAnimationFrame(state.rafId);
+          state.rafId = null;
+        }
+        cancelSpeech();
+        syncControlButtons();
+      }
+
+      function resetWorkout() {
+        if (state.rafId !== null) {
+          cancelAnimationFrame(state.rafId);
+          state.rafId = null;
+        }
+        cancelSpeech();
+
+        state.status = 'idle';
+        state.phases = [];
+        state.phaseIndex = 0;
+        state.phaseElapsedMs = 0;
+        state.totalElapsedMs = 0;
+        state.prepRemainingMs = 0;
+        state.currentRep = 0;
+        state.currentDepth = 0;
+        state.lastWholeSec = -1;
+
+        el.overlayPrep.classList.add('is-hidden');
+        el.overlayComplete.classList.add('is-hidden');
+        el.displayElapsed.textContent = '00:00';
+        el.displayCountdown.textContent = '0.0';
+        syncRepDisplay();
+        applyPhaseTheme('idle');
+        updateProgressUI('idle', 0);
+        renderVisuals(0, 0, 'idle');
+        syncControlButtons();
+      }
+
+      function finishWorkout() {
+        if (state.rafId !== null) {
+          cancelAnimationFrame(state.rafId);
+          state.rafId = null;
+        }
+        state.status = 'completed';
+        applyPhaseTheme('completed');
+        el.displayCountdown.textContent = '0.0';
+        updateProgressUI('completed', 1);
+        renderVisuals(0, 1, 'completed');
+
+        el.completeDesc.textContent = `${state.currentRep}レップ達成しました（合計 ${formatElapsed(state.totalElapsedMs)}）。お疲れ様でした！`;
+        el.overlayComplete.classList.remove('is-hidden');
+        syncControlButtons();
+
+        playCompletionFanfare();
+        speakJa(`${state.currentRep}回、完了しました`);
+      }
+
+      function tick(now) {
+        if (state.status !== 'running' && state.status !== 'prep') return;
+
+        const dt = Math.max(0, Math.min(now - state.lastFrameTs, 100));
+        state.lastFrameTs = now;
+
+        // 1. 準備カウントダウン
+        if (state.status === 'prep') {
+          state.prepRemainingMs -= dt;
+          const totalPrepMs = Math.max(1, state.config.prepSec * 1000);
+          const remSec = Math.max(0, state.prepRemainingMs / 1000);
+          el.displayCountdown.textContent = remSec.toFixed(1);
+
+          const ceilSec = Math.ceil(remSec);
+          if (ceilSec < state.lastWholeSec && ceilSec > 0) {
+            state.lastWholeSec = ceilSec;
+            el.prepCountNum.textContent = String(ceilSec);
+            playPhaseTone('prep');
+            speakJa(String(ceilSec));
+          }
+
+          if (state.prepRemainingMs <= 0) {
+            el.overlayPrep.classList.add('is-hidden');
+            state.status = 'running';
+            enterPhase(state.phases[0]);
+          } else {
+            const prepProg = 1 - Math.max(0, state.prepRemainingMs) / totalPrepMs;
+            updateProgressUI('prep', prepProg);
+            renderVisuals(0, prepProg, 'prep');
+            state.rafId = requestAnimationFrame(tick);
+            return;
+          }
+        }
+
+        // 2. アクティブフェーズ進行
+        const currentPhase = state.phases[state.phaseIndex];
+        if (!currentPhase || currentPhase.durationMs <= 0) {
+          resetWorkout();
+          return;
+        }
+
+        state.phaseElapsedMs += dt;
+        state.totalElapsedMs += dt;
+        el.displayElapsed.textContent = formatElapsed(state.totalElapsedMs);
+
+        // 1秒ごとのリズム音（フェーズ切り替わり直前は重複を避ける）
+        const wholeSec = Math.floor(state.phaseElapsedMs / 1000);
+        if (wholeSec > state.lastWholeSec && state.phaseElapsedMs < currentPhase.durationMs - 140) {
+          state.lastWholeSec = wholeSec;
+          playTickSound();
+        }
+
+        // フェーズ終了判定
+        if (state.phaseElapsedMs >= currentPhase.durationMs) {
+          state.phaseIndex += 1;
+
+          if (state.phaseIndex >= state.phases.length) {
+            state.currentRep += 1;
+            syncRepDisplay();
+
+            if (!state.config.unlimited && state.currentRep >= state.config.targetReps) {
+              finishWorkout();
+              return;
+            }
+
+            state.phaseIndex = 0;
+            enterPhase(state.phases[0], state.currentRep);
+          } else {
+            enterPhase(state.phases[state.phaseIndex]);
+          }
+        }
+
+        // 現在フェーズの進捗計算＆描画
+        const activePhase = state.phases[state.phaseIndex];
+        const durationMs = Math.max(1, activePhase.durationMs);
+        const progress = Math.min(1, Math.max(0, state.phaseElapsedMs / durationMs));
+        const remSec = Math.max(0, (durationMs - state.phaseElapsedMs) / 1000);
+        el.displayCountdown.textContent = remSec.toFixed(1);
+
+        let depth = 0;
+        if (activePhase.type === 'down') {
+          depth = easeInOutSine(progress);
+        } else if (activePhase.type === 'bottom') {
+          depth = 1;
+        } else if (activePhase.type === 'up') {
+          depth = 1 - easeInOutSine(progress);
+        } else if (activePhase.type === 'top') {
+          depth = 0;
+        }
+        state.currentDepth = depth;
+
+        updateProgressUI(activePhase.type, progress);
+        renderVisuals(depth, progress, activePhase.type);
+
+        state.rafId = requestAnimationFrame(tick);
+      }
+
+      // =========================================================
+      // 9. イベントリスナー登録
+      // =========================================================
+      el.btnStartPause.addEventListener('click', () => {
+        if (state.status === 'running' || state.status === 'prep') {
+          pauseWorkout();
+        } else {
+          startWorkout();
+        }
+      });
+
+      el.btnReset.addEventListener('click', resetWorkout);
+      el.btnResetSettings.addEventListener('click', resetConfigToDefaults);
+
+      // モード切替
+      modeTabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          const mode = tab.dataset.mode;
+          if (!mode) return;
+          state.config.mode = mode;
+          syncModeUI();
+          saveConfig();
+
+          const phaseType =
+            state.status === 'running' && state.phases[state.phaseIndex]
+              ? state.phases[state.phaseIndex].type
+              : state.status;
+          const prog =
+            state.status === 'running' && state.phases[state.phaseIndex]
+              ? state.phaseElapsedMs / Math.max(1, state.phases[state.phaseIndex].durationMs)
+              : 0;
+          renderVisuals(state.currentDepth, prog, phaseType);
+        });
+      });
+
+      // プリセットボタン
+      presetBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const parts = (btn.dataset.preset || '').split(',').map(Number);
+          if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n))) return;
+          state.config.down = parts[0];
+          state.config.bottom = parts[1];
+          state.config.up = parts[2];
+          state.config.top = parts[3];
+
+          if (state.status !== 'idle') resetWorkout();
+          syncSettingsValuesUI();
+          syncPresetHighlight();
+          saveConfig();
+        });
+      });
+
+      // テンポスライダー
+      function bindTempoSlider(sliderEl, key, minVal) {
+        sliderEl.addEventListener('input', () => {
+          state.config[key] = clampStep(sliderEl.value, minVal, 10, 0.5, DEFAULTS[key]);
+          if (state.status !== 'idle') resetWorkout();
+          syncSettingsValuesUI();
+          syncPresetHighlight();
+          saveConfig();
+        });
+      }
+      bindTempoSlider(el.sliderDown, 'down', 0.5);
+      bindTempoSlider(el.sliderBottom, 'bottom', 0);
+      bindTempoSlider(el.sliderUp, 'up', 0.5);
+      bindTempoSlider(el.sliderTop, 'top', 0);
+
+      // 目標レップ数（無制限・スライダー・±ボタン）
+      el.checkUnlimited.addEventListener('change', () => {
+        state.config.unlimited = el.checkUnlimited.checked;
+        syncSettingsValuesUI();
+        saveConfig();
+      });
+
+      el.sliderReps.addEventListener('input', () => {
+        state.config.targetReps = clampStep(el.sliderReps.value, 1, 100, 1, DEFAULTS.targetReps);
+        syncSettingsValuesUI();
+        saveConfig();
+      });
+
+      el.btnRepMinus.addEventListener('click', () => {
+        state.config.targetReps = Math.max(1, state.config.targetReps - 1);
+        syncSettingsValuesUI();
+        saveConfig();
+      });
+
+      el.btnRepPlus.addEventListener('click', () => {
+        state.config.targetReps = Math.min(100, state.config.targetReps + 1);
+        syncSettingsValuesUI();
+        saveConfig();
+      });
+
+      // 準備カウントダウン
+      prepBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const sec = Number(btn.dataset.prep);
+          if (![0, 3, 5].includes(sec)) return;
+          state.config.prepSec = sec;
+          syncPrepUI();
+          saveConfig();
+        });
+      });
+
+      // 音声トグル
+      el.btnBeep.addEventListener('click', () => {
+        ensureAudioContext();
+        if (state.config.audio.muted) state.config.audio.muted = false;
+        state.config.audio.beep = !state.config.audio.beep;
+        syncAudioUI();
+        saveConfig();
+        if (state.config.audio.beep) playGlideTone(660, 660, 0.08, 'sine', 0.16);
+      });
+
+      el.btnTick.addEventListener('click', () => {
+        ensureAudioContext();
+        if (state.config.audio.muted) state.config.audio.muted = false;
+        state.config.audio.tick = !state.config.audio.tick;
+        syncAudioUI();
+        saveConfig();
+        if (state.config.audio.tick) playTickSound();
+      });
+
+      el.btnVoice.addEventListener('click', () => {
+        if (state.config.audio.muted) state.config.audio.muted = false;
+        state.config.audio.voice = !state.config.audio.voice;
+        syncAudioUI();
+        saveConfig();
+        if (state.config.audio.voice) speakJa('音声ガイドオン');
+      });
+
+      el.btnMute.addEventListener('click', () => {
+        state.config.audio.muted = !state.config.audio.muted;
+        if (state.config.audio.muted) cancelSpeech();
+        syncAudioUI();
+        saveConfig();
+      });
+
+      // キーボードショートカット（Space: 開始/一時停止, R: リセット）
+      window.addEventListener('keydown', (e) => {
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+        if (e.code === 'Space') {
+          e.preventDefault();
+          el.btnStartPause.click();
+        } else if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          resetWorkout();
+        }
+      });
+
+      // =========================================================
+      // 10. 初期化実行
+      // =========================================================
+      loadConfig();
+      syncAllSettingsUI();
+      applyPhaseTheme('idle');
+      updateProgressUI('idle', 0);
+      renderVisuals(0, 0, 'idle');
+    });
+  </script>
+</body>
+</html>
